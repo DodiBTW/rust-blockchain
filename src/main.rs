@@ -11,23 +11,27 @@ use tonic::transport::Server;
 use crate::network::chain::chain_service_server::{ChainServiceServer};
 use std::{collections::HashMap, net::SocketAddr};
 use crate::network::chain_host::ChainHost;
-
+use clap::Parser;
 
 use tokio::sync::Mutex;
 use std::sync::Arc;
 
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct CliArgs {
+    #[arg(short, long, default_value_t = false)]
+    menu: bool,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = CliArgs::parse();
     let host = "127.0.0.1";
     let port = 51100;
     let addr: SocketAddr = format!("{}:{}", host, port).parse()?;
-
-    // Share blockchain state safely across threads/tasks
     let blockchain = Arc::new(Mutex::new(Blockchain::new()));
     let menu_blockchain = Arc::clone(&blockchain);
 
-
-    // Spawn the gRPC server in background task
     let server_task = tokio::spawn(async move {
         let chain_host = ChainHost {
             address: addr.to_string(),
@@ -44,20 +48,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .await
             .unwrap();
     });
+    if args.menu {
+        loop {
+            let mut locked_chain = menu_blockchain.lock().await;
+            let end = user_choice(&mut locked_chain).await;
+            drop(locked_chain);
 
-    loop {
-        let mut locked_chain = menu_blockchain.lock().await;
-        let end = user_choice(&mut locked_chain).await;
-        drop(locked_chain);
-
-        if end {
-            break;
+            if end {
+                break;
+            }
+            
         }
+        server_task.abort();
+        println!("Thank you for participating!");
     }
-
-    println!("Thank you for participating!");
-
-    server_task.abort();
+    else{
+        let _ = server_task.await; // Keep server running infinitely
+    }
 
     Ok(())
 }

@@ -11,7 +11,7 @@ enum Action{
 }
 
 pub async fn choose_menu() -> String{
-    println!("What would you like to do? \n 1 - Add a block, \n 2 - Print all blocks, \n 3 - Check if our blockchain is valid, \n 4 - Clear console\n 5 - Exit");
+    println!("What would you like to do? \n 1 - Add a block \n 2 - Print all blocks \n 3 - Check if our blockchain is valid \n 4 - Clear console\n 5 - Exit");
     let choice = task::spawn_blocking(|| {
         let mut input = String::new();
         std::io::stdin().read_line(&mut input).expect("Failed to read line");
