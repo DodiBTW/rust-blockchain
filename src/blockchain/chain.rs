@@ -12,7 +12,7 @@ impl Blockchain {
         }
     }
 
-    pub fn add_block(&mut self, data: String, timestamp: u64) {
+    pub fn create_block(&mut self, data: String, timestamp: u64) {
         let last_block = self.blocks.last().expect("Chain should have at least one block");
         let new_block = Block::new(
             last_block.index + 1,
@@ -23,6 +23,26 @@ impl Blockchain {
         self.blocks.push(new_block);
     }
 
+    pub fn add_block(&mut self, block : &mut Block) -> bool{
+        let previous_block : Block = match self.blocks.last(){
+            Some(block) => block.clone(),
+            None => return false,
+        };
+        if block.prev_hash != previous_block.hash {
+            if block.timestamp < previous_block.timestamp {
+                // We need to replace our chain because we're outdated
+                self.blocks.pop();
+                self.blocks.push(block.clone());
+                self.blocks.push(previous_block.clone());
+                return true;
+            }
+            else{
+                return false;
+            }
+        }
+        self.blocks.push(block.clone());
+        true
+    }
     pub fn is_valid(&self) -> bool {
         for i in 1..self.blocks.len() {
             let current = &self.blocks[i];
@@ -34,4 +54,5 @@ impl Blockchain {
         }
         true
     }
+    
 }

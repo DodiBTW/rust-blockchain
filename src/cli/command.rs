@@ -34,7 +34,7 @@ pub fn clear_console() {
     }
 }
 
-pub fn add_block(blockchain: &mut Blockchain){
+pub fn create_block(blockchain: &mut Blockchain){
     println!("What would you like the block to contain?");
     let mut data = String::new();
     std::io::stdin().read_line(&mut data).expect("Failed to read line");
@@ -42,14 +42,14 @@ pub fn add_block(blockchain: &mut Blockchain){
         .duration_since(std::time::UNIX_EPOCH)
         .expect("Time went backwards")
         .as_secs();
-    blockchain.add_block(data.trim().to_string(), timestamp);
+    blockchain.create_block(data.trim().to_string(), timestamp);
 }
 
 pub fn user_choice(blockchain : &mut Blockchain) -> bool {
     let choice = choose_menu();
     match parse_choice(choice.trim()) {
     Some(action) => match action {
-        Action::AddBlock => add_block(blockchain),
+        Action::AddBlock => create_block(blockchain),
         Action::PrintBlocks => print_blockchain(blockchain),
         Action::CheckValidity => {
             if blockchain.is_valid() {
