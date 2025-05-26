@@ -3,17 +3,16 @@ use crate::network::chain::chain_service_server::ChainService;
 use tonic::{Request, Response, Status};
 use crate::blockchain::block::Block;
 use tokio::sync::Mutex;
-use std::collections::HashMap;
 use std::sync::Arc;
 use crate::network::chain::*;
+use crate::network::peer_manager::PeerManager;
 
 
 #[derive(Debug, Clone)]
 pub struct ChainHost {
     pub address: String,
-    pub peers : Vec<String>,
     pub chain: Arc<Mutex<Blockchain>>,
-    pub inactive_pinged_peers: HashMap<String, u64>, // 5 pings unanswered --> remove from peers
+    pub peer_manager: Arc<PeerManager>
 }
 #[tonic::async_trait]
 impl ChainService for ChainHost{
@@ -21,7 +20,8 @@ impl ChainService for ChainHost{
         Ok(Response::new(StringReply { message: "pong".to_string() }))
     }
     async fn get_peers(&self, _req: Request<Empty>) -> Result<Response<PeerList>, Status> {
-        Ok(Response::new(PeerList { peers: self.peers.clone() }))
+        let peers = self.peer_manager.get_peers();
+        Ok(Response::new(PeerList { peers: peers }))
     }
     async fn get_chain(&self, _req: Request<Empty>) -> Result<Response<ProtoBlockchain>, Status> {
         let chain = self.chain.lock().await;
@@ -32,7 +32,6 @@ impl ChainService for ChainHost{
 
         Ok(Response::new(ProtoBlockchain { blocks: proto_blocks }))
     }
-
     async fn receive_added_block(&self, _req : Request<ProtoBlock>) -> Result<Response<BoolReply>, Status>{
         // This is for blocks received by validators
         let proto_block : ProtoBlock = _req.into_inner();

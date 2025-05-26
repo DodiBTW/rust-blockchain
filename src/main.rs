@@ -7,9 +7,10 @@ pub mod chain {
 
 use blockchain::chain::Blockchain;
 use cli::command::user_choice;
+use network::peer_manager::PeerManager;
 use tonic::transport::Server;
 use crate::network::chain::chain_service_server::{ChainServiceServer};
-use std::{collections::HashMap, net::SocketAddr};
+use std::net::SocketAddr;
 use crate::network::chain_host::ChainHost;
 use clap::Parser;
 
@@ -31,13 +32,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr: SocketAddr = format!("{}:{}", host, port).parse()?;
     let blockchain = Arc::new(Mutex::new(Blockchain::new()));
     let menu_blockchain = Arc::clone(&blockchain);
-
+    let peer_manager : Arc<PeerManager> = Arc::new(PeerManager { peers: vec![] });
     let server_task = tokio::spawn(async move {
         let chain_host = ChainHost {
             address: addr.to_string(),
-            peers: Vec::new(),
             chain: blockchain,
-            inactive_pinged_peers: HashMap::new(),
+            peer_manager: peer_manager,
         };
 
         println!("🔫 Server locked in at {}", addr);

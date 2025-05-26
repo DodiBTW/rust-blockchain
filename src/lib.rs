@@ -6,4 +6,5 @@ pub mod network;
 use blockchain::block::Block;
 use blockchain::chain::Blockchain;
 use network::chain_host::ChainHost;
-use network::peers;
+use network::peer_manager::PeerManager;
+use network::peer_client;
