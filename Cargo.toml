@@ -7,4 +7,10 @@ edition = "2024"
 chrono = "0.4.41"
 hex = "0.4.3"
 sha2 = "0.10.9"
-tokio = "1.45.1"
+tokio = { version = "1", features = ["full"] }
+tonic = "0.11"
+prost = "0.12"
+prost-types = "0.13.5"
+
+[build-dependencies]
+tonic-build = "0.11"

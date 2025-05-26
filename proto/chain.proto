@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package chain;
+
+message Empty {}
+
+message StringReply {
+  string message = 1;
+}
+
+message PeerList {
+  repeated string peers = 1;
+}
+
+message ProtoBlock {
+  uint64 index = 1;
+  string prev_hash = 2;
+  string hash = 3;
+  string data = 4;
+  uint64 timestamp = 5;
+}
+
+message ProtoBlockchain {
+  repeated ProtoBlock blocks = 1;
+}
+
+message BoolReply {
+  bool value = 1;
+}
+
+service ChainService {
+  rpc Ping(Empty) returns (StringReply);
+  rpc GetPeers(Empty) returns (PeerList);
+  rpc GetChain(Empty) returns (ProtoBlockchain);
+  rpc ReceiveAddedBlock(ProtoBlock) returns (BoolReply);
+  rpc ReceiveBlockProposition(ProtoBlock) returns (BoolReply);
+}

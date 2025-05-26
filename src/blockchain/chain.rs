@@ -1,5 +1,5 @@
 use crate::blockchain::block::Block;
-#[derive(Debug)]
+#[derive(Clone,Debug)]
 pub struct Blockchain {
     pub blocks: Vec<Block>,
 }
@@ -23,7 +23,7 @@ impl Blockchain {
         self.blocks.push(new_block);
     }
 
-    pub fn add_block(&mut self, block : &mut Block) -> bool{
+    pub fn add_block(&mut self, block : &Block) -> bool{
         let previous_block : Block = match self.blocks.last(){
             Some(block) => block.clone(),
             None => return false,

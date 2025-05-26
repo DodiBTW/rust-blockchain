@@ -1,4 +1,5 @@
 use sha2::{Sha256, Digest};
+use crate::network::chain::ProtoBlock;
 
 #[derive(Debug, Clone)]
 pub struct Block {
@@ -34,3 +35,27 @@ impl Block {
         self.hash == self.calculate_hash()
     }
 }
+impl From<ProtoBlock> for Block {
+    fn from(proto: ProtoBlock) -> Self {
+        Block {
+            index: proto.index,
+            timestamp: proto.timestamp,
+            data: proto.data,
+            prev_hash: proto.prev_hash,
+            hash: proto.hash,
+        }
+    }
+}
+
+impl From<&Block> for ProtoBlock {
+    fn from(block: &Block) -> Self {
+        ProtoBlock {
+            index: block.index,
+            timestamp: block.timestamp,
+            data: block.data.clone(),
+            prev_hash: block.prev_hash.clone(),
+            hash: block.hash.clone(),
+        }
+    }
+}
+

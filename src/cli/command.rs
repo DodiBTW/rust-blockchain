@@ -1,3 +1,5 @@
+use tokio::task;
+
 use crate::blockchain::chain::Blockchain;
 
 enum Action{
@@ -8,11 +10,19 @@ enum Action{
     Exit,
 }
 
-pub fn choose_menu() -> String{
+pub async fn choose_menu() -> String{
     println!("What would you like to do? \n 1 - Add a block, \n 2 - Print all blocks, \n 3 - Check if our blockchain is valid, \n 4 - Clear console\n 5 - Exit");
-    let mut choice = String::new();
-    std::io::stdin().read_line(&mut choice).expect("Failed to read line");
-    return choice;
+    let choice = task::spawn_blocking(|| {
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input).expect("Failed to read line");
+        input
+    }   
+    )
+    .await
+    .expect("Failed to read line asynchronously");
+
+    
+    choice
 }
 
 pub fn print_blockchain(blockchain: &Blockchain){
@@ -45,8 +55,8 @@ pub fn create_block(blockchain: &mut Blockchain){
     blockchain.create_block(data.trim().to_string(), timestamp);
 }
 
-pub fn user_choice(blockchain : &mut Blockchain) -> bool {
-    let choice = choose_menu();
+pub async fn user_choice(blockchain : &mut Blockchain) -> bool {
+    let choice = choose_menu().await;
     match parse_choice(choice.trim()) {
     Some(action) => match action {
         Action::AddBlock => create_block(blockchain),
