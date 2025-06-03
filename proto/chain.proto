@@ -28,10 +28,15 @@ message BoolReply {
   bool value = 1;
 }
 
+message PeerAdd {
+  string address = 1;
+}
+
 service ChainService {
   rpc Ping(Empty) returns (StringReply);
   rpc GetPeers(Empty) returns (PeerList);
   rpc GetChain(Empty) returns (ProtoBlockchain);
   rpc ReceiveAddedBlock(ProtoBlock) returns (BoolReply);
   rpc ReceiveBlockProposition(ProtoBlock) returns (BoolReply);
+  rpc ReceivePeerAdd(PeerAdd) returns (BoolReply);
 }

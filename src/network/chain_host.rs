@@ -33,6 +33,14 @@ impl ChainService for ChainHost{
 
         Ok(Response::new(ProtoBlockchain { blocks: proto_blocks }))
     }
+    async fn receive_peer_add(&self, _req: Request<PeerAdd>) -> Result<Response<BoolReply>, Status> {
+        println!("Received peer add request");
+        let peer_add: PeerAdd = _req.into_inner();
+        let mut peer_manager = self.peer_manager.lock().await;
+        peer_manager.add_peer(peer_add.address.as_str(), false).await;
+        println!("Peer {} added successfully!", peer_add.address);
+        return Ok(Response::new(BoolReply { value: true }));
+    }
     async fn receive_added_block(&self, _req : Request<ProtoBlock>) -> Result<Response<BoolReply>, Status>{
         // This is for blocks received by validators
         let proto_block : ProtoBlock = _req.into_inner();

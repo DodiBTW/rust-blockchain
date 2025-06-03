@@ -74,4 +74,18 @@ impl PeerClient {
         println!("✅ Block proposition sent to {}: {}", peer_addr, result);
         Ok(result)
     }
+    pub async fn send_peer_add(
+        &self,
+        peer_addr: &str,
+    ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+        println!("Adding peer at address: {}", peer_addr);
+        let mut client = ChainServiceClient::connect(format!("http://{}", peer_addr)).await?;
+
+        let request = tonic::Request::new(crate::network::chain::PeerAdd { address: self.address.clone() });
+
+        let response = client.receive_peer_add(request).await?;
+        let result = response.into_inner().value;
+        println!("✅ Peer added to {}: {}", peer_addr, result);
+        Ok(result)
+    }
 }

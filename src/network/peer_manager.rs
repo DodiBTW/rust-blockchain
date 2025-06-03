@@ -40,15 +40,22 @@ impl PeerManager {
             None => return,
         }
     }
-    pub fn add_peer(&mut self, peer_address: String){
-        if !self.peers.contains(&peer_address) {
+    pub async fn add_peer(&mut self, peer_address: &str, propagate: bool) {
+        if !self.peers.contains(&peer_address.to_string()) {
             // Make sure it's not our address
             if peer_address == self.client.address {
                 println!("Cannot add self as a peer.");
                 return;
             }
-            self.peers.push(peer_address);
+            self.peers.push(peer_address.to_string());
+            if propagate {
+                let _ = self.client.send_peer_add(&peer_address).await;
+            }
         }
+        else {
+            println!("Peer {} already exists.", peer_address);
+        }
+        return;
     }
     fn cleanup_dead_peers (&mut self){
         let removable : Vec<_> = self.inactive_pinged_peers.iter()

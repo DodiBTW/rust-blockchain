@@ -104,7 +104,7 @@ pub async fn user_choice(
             std::io::stdin().read_line(&mut peer_address).expect("Failed to read line");
             let peer_address = peer_address.trim().to_string();
             let mut peer_manager_locked = peer_manager.lock().await;
-            peer_manager_locked.peers.push(peer_address.clone());
+            peer_manager_locked.add_peer(&peer_address, true).await;
             println!("Peer {} added successfully!", peer_address);
         },
         Action::PrintPeers => {
