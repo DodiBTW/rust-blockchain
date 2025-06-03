@@ -12,12 +12,13 @@ enum Action{
     PrintBlocks,
     CheckValidity,
     ClearConsole,
+    PrintPeers,
     AddPeer,
     Exit,
 }
 
 pub async fn choose_menu() -> String{
-    println!("What would you like to do? \n 1 - Add a block \n 2 - Print all blocks \n 3 - Check if our blockchain is valid \n 4 - Clear console \n 5 - Add peer address \n 0 - Exit");
+    println!("What would you like to do? \n 1 - Add a block \n 2 - Print all blocks \n 3 - Check if our blockchain is valid \n 4 - Clear console \n 5 - Add peer address \n 6 - Print peers \n 0 - Exit");
     let choice = task::spawn_blocking(|| {
         let mut input = String::new();
         std::io::stdin().read_line(&mut input).expect("Failed to read line");
@@ -106,6 +107,17 @@ pub async fn user_choice(
             peer_manager_locked.peers.push(peer_address.clone());
             println!("Peer {} added successfully!", peer_address);
         },
+        Action::PrintPeers => {
+            let peer_manager_locked = peer_manager.lock().await;
+            if peer_manager_locked.peers.is_empty() {
+                println!("No peers available.");
+            } else {
+                println!("Current peers:");
+                for peer in &peer_manager_locked.peers {
+                    println!("{}", peer);
+                }
+            }
+        },
         Action::ClearConsole => clear_console(),
         Action::Exit => return true,
     },
@@ -121,6 +133,7 @@ fn parse_choice(choice: &str) -> Option<Action> {
         "3" => Some(Action::CheckValidity),
         "4" => Some(Action::ClearConsole),
         "5" => Some(Action::AddPeer),
+        "6" => Some(Action::PrintPeers),
         "0" => Some(Action::Exit),
         _ => None,
     }

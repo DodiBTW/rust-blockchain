@@ -35,13 +35,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let port = args.port;
     let addr: SocketAddr = format!("{}:{}", host, port).parse()?;
 
-    let max_strikes = 5; // How many pings before disconnecting an inactive peer
-    let ping_delay = 10; // how many seconds before repinging
+    let max_strikes = 3; // How many pings before disconnecting an inactive peer
+    let ping_delay = 2; // how many seconds before repinging
 
     let blockchain = Arc::new(Mutex::new(Blockchain::new()));
     let menu_blockchain = Arc::clone(&blockchain);
     let inactive :  HashMap<String, u8> =  HashMap::new();
-    let peer_client = network::peer_client::PeerClient::new();
+    let peer_client = network::peer_client::PeerClient::new(addr.to_string());
+    let peer_client_for_menu = Arc::new(Mutex::new(peer_client.clone()));
     let peer_manager  = Arc::new(Mutex::new(PeerManager { peers: vec![] , inactive_pinged_peers : inactive, max_strikes : max_strikes, client: peer_client }));
     let peer_manager_for_server = Arc::clone(&peer_manager);
     let peer_manager_for_ping = Arc::clone(&peer_manager);
@@ -74,8 +75,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
     };
 
-    let peer_client_for_menu = Arc::new(Mutex::new(network::peer_client::PeerClient::new()));
-    // let peer_client_for_menu = Arc::new(Mutex::new(network::peer_client::PeerClient::new()));
     if args.menu {
         loop {
             let end = user_choice(

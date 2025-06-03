@@ -21,8 +21,8 @@ impl PeerManager {
                     }
                     continue;
                 },
-                Err(e) => {
-                    println!("❌ No response from {}: {:?}", peer, e);
+                Err(_) => {
+                    println!("❌ No response from {}.", peer);
                     self.inactive_pinged_peers
                     .entry(peer.clone())
                     .and_modify(|count| *count += 1)
@@ -40,6 +40,16 @@ impl PeerManager {
             None => return,
         }
     }
+    pub fn add_peer(&mut self, peer_address: String){
+        if !self.peers.contains(&peer_address) {
+            // Make sure it's not our address
+            if peer_address == self.client.address {
+                println!("Cannot add self as a peer.");
+                return;
+            }
+            self.peers.push(peer_address);
+        }
+    }
     fn cleanup_dead_peers (&mut self){
         let removable : Vec<_> = self.inactive_pinged_peers.iter()
         .filter(|(_, count)| **count >= self.max_strikes)
@@ -47,6 +57,7 @@ impl PeerManager {
         .collect();
         for peer in removable {
             self.inactive_pinged_peers.remove(&peer);
+            self.remove_peer(peer);
         }
     }
 }

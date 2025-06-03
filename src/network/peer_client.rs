@@ -1,12 +1,13 @@
 use crate::network::chain::chain_service_client::ChainServiceClient;
 use crate::network::chain::Empty;
 #[derive(Debug, Clone)]
-pub struct PeerClient;
-
+pub struct PeerClient{
+    pub address: String,
+}
 
 impl PeerClient {
-    pub fn new() -> Self {
-        PeerClient {}
+    pub fn new(address: String) -> Self {
+        PeerClient { address }
     }
 
     pub async fn ping(&self, peer_addr: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
