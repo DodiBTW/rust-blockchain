@@ -1,17 +1,76 @@
-use tonic::transport::Channel;
 use crate::network::chain::chain_service_client::ChainServiceClient;
 use crate::network::chain::Empty;
+#[derive(Debug, Clone)]
+pub struct PeerClient;
 
-pub async fn ping(peer_addr: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let mut client = ChainServiceClient::connect(format!("http://{}", peer_addr)).await?;
 
-    let request = tonic::Request::new(Empty {});
+impl PeerClient {
+    pub fn new() -> Self {
+        PeerClient {}
+    }
 
-    let response = client.ping(request).await?;
-    if response.into_inner().message == "pong" {
-        println!("👊 Ping to {} succeeded", peer_addr);
-        Ok(())
-    } else {
-        Err("Ping response was not pong".into())
+    pub async fn ping(&self, peer_addr: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let mut client = ChainServiceClient::connect(format!("http://{}", peer_addr)).await?;
+
+        let request = tonic::Request::new(Empty {});
+
+        let response = client.ping(request).await?;
+        if response.into_inner().message == "pong" {
+            Ok(())
+        } else {
+            println!("Ping failed to {}.", peer_addr);
+            Err("Ping response was not pong".into())
+        }
+    }
+
+    pub async fn get_peers(&self, peer_addr: &str) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+        let mut client = ChainServiceClient::connect(format!("http://{}", peer_addr)).await?;
+
+        let request = tonic::Request::new(Empty {});
+
+        let response = client.get_peers(request).await?;
+        let peers = response.into_inner().peers;
+        println!("👥 Peers from {}: {:?}", peer_addr, peers);
+        Ok(peers)
+    }
+    pub async fn get_chain(&self, peer_addr: &str) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+        let mut client = ChainServiceClient::connect(format!("http://{}", peer_addr)).await?;
+
+        let request = tonic::Request::new(Empty {});
+
+        let response = client.get_chain(request).await?;
+        let blocks = response.into_inner().blocks;
+        println!("📜 Chain from {}: {:?}", peer_addr, blocks);
+        Ok(blocks.into_iter().map(|b| b.hash).collect())
+    }
+    pub async fn send_added_block(
+        &self,
+        peer_addr: &str,
+        block: crate::blockchain::block::Block,
+    ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+        let mut client = ChainServiceClient::connect(format!("http://{}", peer_addr)).await?;
+
+        let proto_block: crate::network::chain::ProtoBlock = (&block).into();
+        let request = tonic::Request::new(proto_block);
+
+        let response = client.receive_added_block(request).await?;
+        let result = response.into_inner().value;
+        println!("✅ Block added to {}: {}", peer_addr, result);
+        Ok(result)
+    }
+    pub async fn send_block_proposition(
+        &self,
+        peer_addr: &str,
+        block: crate::blockchain::block::Block,
+    ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+        let mut client = ChainServiceClient::connect(format!("http://{}", peer_addr)).await?;
+
+        let proto_block: crate::network::chain::ProtoBlock = (&block).into();
+        let request = tonic::Request::new(proto_block);
+
+        let response = client.receive_block_proposition(request).await?;
+        let result = response.into_inner().value;
+        println!("✅ Block proposition sent to {}: {}", peer_addr, result);
+        Ok(result)
     }
 }

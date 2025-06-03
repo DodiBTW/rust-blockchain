@@ -12,7 +12,7 @@ use crate::network::peer_manager::PeerManager;
 pub struct ChainHost {
     pub address: String,
     pub chain: Arc<Mutex<Blockchain>>,
-    pub peer_manager: Arc<PeerManager>
+    pub peer_manager: Arc<Mutex<PeerManager>>
 }
 #[tonic::async_trait]
 impl ChainService for ChainHost{
@@ -20,7 +20,8 @@ impl ChainService for ChainHost{
         Ok(Response::new(StringReply { message: "pong".to_string() }))
     }
     async fn get_peers(&self, _req: Request<Empty>) -> Result<Response<PeerList>, Status> {
-        let peers = self.peer_manager.get_peers();
+        let peer_manager = self.peer_manager.lock().await;
+        let peers = peer_manager.get_peers();
         Ok(Response::new(PeerList { peers: peers }))
     }
     async fn get_chain(&self, _req: Request<Empty>) -> Result<Response<ProtoBlockchain>, Status> {

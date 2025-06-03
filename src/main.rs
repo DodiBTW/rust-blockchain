@@ -10,7 +10,7 @@ use cli::command::user_choice;
 use network::peer_manager::PeerManager;
 use tonic::transport::Server;
 use crate::network::chain::chain_service_server::{ChainServiceServer};
-use std::net::SocketAddr;
+use std::{collections::HashMap, net::SocketAddr};
 use crate::network::chain_host::ChainHost;
 use clap::Parser;
 
@@ -22,25 +22,38 @@ use std::sync::Arc;
 struct CliArgs {
     #[arg(short, long, default_value_t = false)]
     menu: bool,
+
+    #[arg(short, long, default_value_t = 51100)]
+    port: u16,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = CliArgs::parse();
+
     let host = "127.0.0.1";
-    let port = 51100;
+    let port = args.port;
     let addr: SocketAddr = format!("{}:{}", host, port).parse()?;
+
+    let max_strikes = 5; // How many pings before disconnecting an inactive peer
+    let ping_delay = 10; // how many seconds before repinging
+
     let blockchain = Arc::new(Mutex::new(Blockchain::new()));
     let menu_blockchain = Arc::clone(&blockchain);
-    let peer_manager : Arc<PeerManager> = Arc::new(PeerManager { peers: vec![] });
+    let inactive :  HashMap<String, u8> =  HashMap::new();
+    let peer_client = network::peer_client::PeerClient::new();
+    let peer_manager  = Arc::new(Mutex::new(PeerManager { peers: vec![] , inactive_pinged_peers : inactive, max_strikes : max_strikes, client: peer_client }));
+    let peer_manager_for_server = Arc::clone(&peer_manager);
+    let peer_manager_for_ping = Arc::clone(&peer_manager);
+    let peer_manager_for_menu = Arc::clone(&peer_manager);
     let server_task = tokio::spawn(async move {
         let chain_host = ChainHost {
             address: addr.to_string(),
             chain: blockchain,
-            peer_manager: peer_manager,
+            peer_manager: peer_manager_for_server,
         };
 
-        println!("🔫 Server locked in at {}", addr);
+        println!("Server locked in at {}", addr);
 
         Server::builder()
             .add_service(ChainServiceServer::new(chain_host))
@@ -48,22 +61,40 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .await
             .unwrap();
     });
+
+    let ping_task = {
+        tokio::spawn(async move {
+            loop {
+                {
+                    let mut pm = peer_manager_for_ping.lock().await;
+                    pm.ping_peers().await;
+                }
+                tokio::time::sleep(tokio::time::Duration::from_secs(ping_delay)).await;
+            }
+        })
+    };
+
+    let peer_client_for_menu = Arc::new(Mutex::new(network::peer_client::PeerClient::new()));
+    // let peer_client_for_menu = Arc::new(Mutex::new(network::peer_client::PeerClient::new()));
     if args.menu {
         loop {
-            let mut locked_chain = menu_blockchain.lock().await;
-            let end = user_choice(&mut locked_chain).await;
-            drop(locked_chain);
+            let end = user_choice(
+                &menu_blockchain,
+                &peer_manager_for_menu,
+                &peer_client_for_menu
+            ).await;
 
             if end {
                 break;
             }
-            
         }
+        // Clean shutdown
         server_task.abort();
+        ping_task.abort();
         println!("Thank you for participating!");
-    }
-    else{
-        let _ = server_task.await; // Keep server running infinitely
+    } else {
+        let _ = server_task.await;
+        ping_task.abort();
     }
 
     Ok(())

@@ -1,27 +1,31 @@
 use tokio::task;
 
+use tokio::sync::Mutex;
+use std::sync::Arc;
+
 use crate::blockchain::chain::Blockchain;
+use crate::network::peer_client::PeerClient;
+use crate::network::peer_manager::PeerManager;
 
 enum Action{
     AddBlock,
     PrintBlocks,
     CheckValidity,
     ClearConsole,
+    AddPeer,
     Exit,
 }
 
 pub async fn choose_menu() -> String{
-    println!("What would you like to do? \n 1 - Add a block \n 2 - Print all blocks \n 3 - Check if our blockchain is valid \n 4 - Clear console\n 5 - Exit");
+    println!("What would you like to do? \n 1 - Add a block \n 2 - Print all blocks \n 3 - Check if our blockchain is valid \n 4 - Clear console \n 5 - Add peer address \n 0 - Exit");
     let choice = task::spawn_blocking(|| {
         let mut input = String::new();
         std::io::stdin().read_line(&mut input).expect("Failed to read line");
         input
-    }   
-    )
+    })
     .await
     .expect("Failed to read line asynchronously");
 
-    
     choice
 }
 
@@ -55,18 +59,52 @@ pub fn create_block(blockchain: &mut Blockchain){
     blockchain.create_block(data.trim().to_string(), timestamp);
 }
 
-pub async fn user_choice(blockchain : &mut Blockchain) -> bool {
+pub async fn user_choice(
+    chain: &Arc<Mutex<Blockchain>>,
+    peer_manager: &Arc<Mutex<PeerManager>>,
+    peer_client: &Arc<Mutex<PeerClient>>,
+) -> bool {
     let choice = choose_menu().await;
     match parse_choice(choice.trim()) {
     Some(action) => match action {
-        Action::AddBlock => create_block(blockchain),
-        Action::PrintBlocks => print_blockchain(blockchain),
+        Action::AddBlock =>{
+            let mut blockchain_locked = chain.lock().await;
+            create_block(&mut blockchain_locked);
+            println!("Block added successfully!");
+            let peer_manager_locked = peer_manager.lock().await;
+            for peer in &peer_manager_locked.peers {
+                let locked_peer_client = peer_client.lock().await;
+                if let Err(e) = locked_peer_client.send_added_block(peer, blockchain_locked.blocks.last().unwrap().clone()).await {
+                    println!("Failed to send added block to {}: {}", peer, e);
+                } else {
+                    println!("Added block sent to {}", peer);
+                }
+            }
+        }
+        Action::PrintBlocks => {
+            let blockchain_locked = chain.lock().await;
+            if blockchain_locked.blocks.is_empty() {
+                println!("No blocks in the blockchain yet.");
+            } else {
+                print_blockchain(&blockchain_locked);
+            }
+        }
         Action::CheckValidity => {
-            if blockchain.is_valid() {
+            let blockchain_locked = chain.lock().await;
+            if blockchain_locked.is_valid() {
                 println!("Our blockchain is valid!");
             } else {
                 println!("Our blockchain is NOT valid!!! that's bad!");
             }
+        },
+        Action::AddPeer => {
+            println!("Enter the peer address to add:");
+            let mut peer_address = String::new();
+            std::io::stdin().read_line(&mut peer_address).expect("Failed to read line");
+            let peer_address = peer_address.trim().to_string();
+            let mut peer_manager_locked = peer_manager.lock().await;
+            peer_manager_locked.peers.push(peer_address.clone());
+            println!("Peer {} added successfully!", peer_address);
         },
         Action::ClearConsole => clear_console(),
         Action::Exit => return true,
@@ -82,7 +120,8 @@ fn parse_choice(choice: &str) -> Option<Action> {
         "2" => Some(Action::PrintBlocks),
         "3" => Some(Action::CheckValidity),
         "4" => Some(Action::ClearConsole),
-        "5" => Some(Action::Exit),
+        "5" => Some(Action::AddPeer),
+        "0" => Some(Action::Exit),
         _ => None,
     }
 }
