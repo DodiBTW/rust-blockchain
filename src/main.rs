@@ -17,6 +17,7 @@ use clap::Parser;
 use tokio::sync::Mutex;
 use std::sync::Arc;
 use std::time::Instant;
+use rand::seq::SliceRandom;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -144,36 +145,63 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         })
     };
-
-
     if args.benchmark {
         let mut handles = vec![];
         println!("Starting benchmark: sending {} blocks of {} bytes each", benchmark_amount, benchmark_data_size);
         let blockchain = Arc::clone(&menu_blockchain);
+        let peer_manager = Arc::clone(&peer_manager);
+        let peer_client = Arc::clone(&peer_client);
+        // Check initial block count
+        let initial_count = blockchain.lock().await.blocks.len();
+        println!("Initial blockchain has {} blocks", initial_count);
         let handle = tokio::spawn(async move {
             let start = Instant::now();
             let mut total_size = 0;
-
-            for _ in 0..benchmark_amount {
-            let data: String = rand::thread_rng()
-                .sample_iter(&Alphanumeric)
-                .take(benchmark_data_size)
-                .map(char::from)
-                .collect();
-            let timestamp = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .expect("Time went backwards")
-                .as_secs();
-            blockchain.lock().await.create_block(data, timestamp);
-            total_size += benchmark_data_size;
+            for i in 0..benchmark_amount {
+                let data: String = rand::thread_rng()
+                    .sample_iter(&Alphanumeric)
+                    .take(benchmark_data_size)
+                    .map(char::from)
+                    .collect();
+                let timestamp = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .expect("Time went backwards")
+                    .as_secs();
+                // Create block and get a clone of the new block
+                let block = {
+                    let mut blockchain_locked = blockchain.lock().await;
+                    blockchain_locked.create_block(data, timestamp);
+                    blockchain_locked.blocks.last().cloned()
+                };
+                total_size += benchmark_data_size;
+                // Send the new block to all peers
+                if let Some(block) = block {
+                    let mut peers = {
+                        let peer_manager_locked = peer_manager.lock().await;
+                        peer_manager_locked.peers.clone()
+                    };
+                    // Randomize peer order for benchmarking
+                    peers.shuffle(&mut rand::thread_rng());
+                    for peer in peers {
+                        let locked_peer_client = peer_client.lock().await;
+                        if let Err(e) = locked_peer_client.send_added_block(&peer, block.clone()).await {
+                            println!("Failed to send added block to {}: {}", peer, e);
+                        }
+                    }
+                }
+                // Print progress every 1000 blocks
+                if (i + 1) % 1000 == 0 {
+                    let current_count = blockchain.lock().await.blocks.len();
+                    println!("Created {} blocks, blockchain now has {} blocks", i + 1, current_count);
+                }
             }
-
+            let final_count = blockchain.lock().await.blocks.len();
+            println!("Final blockchain has {} blocks", final_count);
             let duration = start.elapsed();
             let speed = total_size as f64 / duration.as_secs_f64();
-            println!("Benchmark: {} bytes/sec", speed);
+            println!("Benchmark: {} MB/sec", speed / 1_000_000.0);
         });
         handles.push(handle);
-
         futures::future::join_all(handles).await;
     }
 
