@@ -54,5 +54,7 @@ impl Blockchain {
         }
         true
     }
-    
+    pub fn contains(&self, block: &Block) -> bool {
+        self.blocks.iter().any(|b| b.hash == block.hash)
+    }
 }

@@ -68,20 +68,28 @@ pub async fn user_choice(
     let choice = choose_menu().await;
     match parse_choice(choice.trim()) {
     Some(action) => match action {
-        Action::AddBlock =>{
-            let mut blockchain_locked = chain.lock().await;
-            create_block(&mut blockchain_locked);
-            println!("Block added successfully!");
-            let peer_manager_locked = peer_manager.lock().await;
-            for peer in &peer_manager_locked.peers {
-                let locked_peer_client = peer_client.lock().await;
-                if let Err(e) = locked_peer_client.send_added_block(peer, blockchain_locked.blocks.last().unwrap().clone()).await {
-                    println!("Failed to send added block to {}: {}", peer, e);
-                } else {
-                    println!("Added block sent to {}", peer);
+        Action::AddBlock => {
+                let last_block = {
+                    let mut blockchain_locked = chain.lock().await;
+                    create_block(&mut blockchain_locked);
+                    println!("Block added successfully!");
+                    blockchain_locked.blocks.last().cloned()
+                };
+                let peers = {
+                    let peer_manager_locked = peer_manager.lock().await;
+                    peer_manager_locked.peers.clone()
+                };
+                if let Some(block) = last_block {
+                    for peer in peers {
+                        let locked_peer_client = peer_client.lock().await;
+                        if let Err(e) = locked_peer_client.send_added_block(&peer, block.clone()).await {
+                            println!("Failed to send added block to {}: {}", peer, e);
+                        } else {
+                            println!("Added block sent to {}", peer);
+                        }
+                    }
                 }
             }
-        }
         Action::PrintBlocks => {
             let blockchain_locked = chain.lock().await;
             if blockchain_locked.blocks.is_empty() {
@@ -103,17 +111,19 @@ pub async fn user_choice(
             let mut peer_address = String::new();
             std::io::stdin().read_line(&mut peer_address).expect("Failed to read line");
             let peer_address = peer_address.trim().to_string();
-            let mut peer_manager_locked = peer_manager.lock().await;
-            peer_manager_locked.add_peer(&peer_address, true).await;
+            {
+                let mut peer_manager_locked = peer_manager.lock().await;
+                peer_manager_locked.add_peer(&peer_address, true).await;
+            }
             println!("Peer {} added successfully!", peer_address);
         },
         Action::PrintPeers => {
-            let peer_manager_locked = peer_manager.lock().await;
-            if peer_manager_locked.peers.is_empty() {
+            let peers = peer_manager.lock().await.get_peers();
+            if peers.is_empty() {
                 println!("No peers available.");
             } else {
                 println!("Current peers:");
-                for peer in &peer_manager_locked.peers {
+                for peer in peers {
                     println!("{}", peer);
                 }
             }

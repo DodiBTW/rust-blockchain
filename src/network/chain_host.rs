@@ -38,7 +38,6 @@ impl ChainService for ChainHost{
         let peer_add: PeerAdd = _req.into_inner();
         let mut peer_manager = self.peer_manager.lock().await;
         peer_manager.add_peer(peer_add.address.as_str(), false).await;
-        println!("Peer {} added successfully!", peer_add.address);
         return Ok(Response::new(BoolReply { value: true }));
     }
     async fn receive_added_block(&self, _req : Request<ProtoBlock>) -> Result<Response<BoolReply>, Status>{

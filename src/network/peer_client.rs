@@ -1,5 +1,6 @@
 use crate::network::chain::chain_service_client::ChainServiceClient;
 use crate::network::chain::Empty;
+use crate::blockchain::block::Block;
 #[derive(Debug, Clone)]
 pub struct PeerClient{
     pub address: String,
@@ -31,18 +32,16 @@ impl PeerClient {
 
         let response = client.get_peers(request).await?;
         let peers = response.into_inner().peers;
-        println!("👥 Peers from {}: {:?}", peer_addr, peers);
         Ok(peers)
     }
-    pub async fn get_chain(&self, peer_addr: &str) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn get_chain(&self, peer_addr: &str) -> Result<Vec<Block>, Box<dyn std::error::Error + Send + Sync>> {
         let mut client = ChainServiceClient::connect(format!("http://{}", peer_addr)).await?;
-
         let request = tonic::Request::new(Empty {});
-
         let response = client.get_chain(request).await?;
-        let blocks = response.into_inner().blocks;
-        println!("📜 Chain from {}: {:?}", peer_addr, blocks);
-        Ok(blocks.into_iter().map(|b| b.hash).collect())
+        let proto_blocks = response.into_inner().blocks;
+        // Convert ProtoBlock to Block
+        let blocks = proto_blocks.into_iter().map(Block::from).collect();
+        Ok(blocks)
     }
     pub async fn send_added_block(
         &self,

@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 use crate::network::peer_client::PeerClient;
+use tokio::sync::Mutex;
+use std::sync::Arc;
 #[derive(Debug,Clone)]
 pub struct PeerManager{
     pub peers : Vec<String>,
     pub inactive_pinged_peers: HashMap<String, u8>,
     pub max_strikes: u8,
-    pub client: PeerClient,
+    pub client: Arc<Mutex<PeerClient>>,
 }
 
 impl PeerManager {
@@ -14,7 +16,7 @@ impl PeerManager {
     }
     pub async fn ping_peers(&mut self) {
         for peer in &self.peers {
-            match self.client.ping(peer).await {
+            match self.client.lock().await.ping(peer).await {
                 Ok(_) => {
                     if self.inactive_pinged_peers.contains_key(peer){
                         self.inactive_pinged_peers.remove(peer);
@@ -40,22 +42,22 @@ impl PeerManager {
             None => return,
         }
     }
-    pub async fn add_peer(&mut self, peer_address: &str, propagate: bool) {
-        if !self.peers.contains(&peer_address.to_string()) {
-            // Make sure it's not our address
-            if peer_address == self.client.address {
-                println!("Cannot add self as a peer.");
-                return;
+    pub async fn add_peer(&mut self, peer_address: &str, mut propagate: bool) {
+        {
+            let self_address = self.client.lock().await.address.clone();
+            if !self.peers.contains(&peer_address.to_string()) {
+                if peer_address == self_address {
+                    return;
+                }
+                self.peers.push(peer_address.to_string());
+            } else {
+                println!("Peer {} already exists.", peer_address);
+                propagate = false;
             }
-            self.peers.push(peer_address.to_string());
-            if propagate {
-                let _ = self.client.send_peer_add(&peer_address).await;
-            }
+        };
+        if propagate {
+            let _ = self.client.lock().await.send_peer_add(&peer_address).await;
         }
-        else {
-            println!("Peer {} already exists.", peer_address);
-        }
-        return;
     }
     fn cleanup_dead_peers (&mut self){
         let removable : Vec<_> = self.inactive_pinged_peers.iter()

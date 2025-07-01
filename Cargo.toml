@@ -12,6 +12,8 @@ tonic = "0.11"
 prost = "0.12"
 prost-types = "0.13.5"
 clap = { version = "4.3", features = ["derive"] }
+rand = "0.8"
+futures = "0.3.31"
 
 [build-dependencies]
 tonic-build = "0.11"
