@@ -10,6 +10,9 @@ This CLI tool lets you run decentralized nodes that generate, validate, and shar
 - **Block Generation**  
   Each block includes a cryptographic hash, timestamp, data, and a link to the previous block, ensuring chain integrity.
 
+- **Benchmark mode!!**
+  Newly added feature to allow for benchmarking peers.
+
 - **Blockchain Management**  
   In-memory blockchain with block validation, chain extension, and chain validity checks.
 
@@ -53,7 +56,8 @@ This CLI tool lets you run decentralized nodes that generate, validate, and shar
 4. **Block Propagation:**
     - When you add a block, it is broadcast to all peers.
     - Peers validate and append blocks if valid.
-
+5. **Benchmark**
+    - adding the --benchmark flag to your cargo run command will create a client that connects to *127.0.0.1:6000* and all it's peers, then sends 10000 1024 byte blocks.
 ---
 
 ## 🧩 Architecture
