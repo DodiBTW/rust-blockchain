@@ -76,7 +76,11 @@ Start two nodes in separate terminals:
 cargo run -- --menu --port 5000
 cargo run -- --menu --port 5001
 ```
-On one node, add the other's address as a peer. Now, when you add a block, it will be sent to the peer!
+On one node, add the other's address as a peer. 
+```bash
+127.0.0.1:5001
+```
+Now, when you add a block, it will be sent to the peer!
 
 ---
 
